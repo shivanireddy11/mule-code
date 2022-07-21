@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="a5d97260-4424-4cfd-a948-7ecea58021b4" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="d746c27c-f1ef-426b-969a-be186323811b" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="root" database="foreach" />
+	</db:config>
+	<flow name="foreachFlow" doc:id="ab66bf77-9b9e-4026-8cc8-8f0406d27545" >
+		<http:listener doc:name="Listener" doc:id="28cbee88-a2a4-4a8d-842c-ae207b3f0108" config-ref="HTTP_Listener_config" path="/foreach"/>
+		<logger level="INFO" doc:name="Logger" doc:id="c9131b35-c77d-442a-9933-3f48941357ef" message='#["start"]'/>
+		<ee:transform doc:name="Transform Message" doc:id="ae93a5dc-1154-4151-bb2c-a3bfd0ed3e5c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+ 1 to 15 map{
+	"id":  if( $$ == 7) "mulesoft" else 100 + $$, 
+	"name": "shivani"
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="5b670ba0-7d78-4759-9e4f-8d3853f376e7" collection="#[payload]">
+			<try doc:name="Try" doc:id="6f3946af-51aa-476b-a68b-cc2d60ae767c" >
+				<db:insert doc:name="Insert" doc:id="c3a18743-41a9-451d-9622-6f20f329602d" config-ref="Database_Config">
+				<db:sql><![CDATA[INSERT INTO foreach.emp (Id , Name )
+VALUES (:Id,:Name); ]]></db:sql>
+				<db:input-parameters><![CDATA[#[{
+	"Id": payload.id,
+	"Name": payload.name
+}]]]></db:input-parameters>
+			</db:insert>
+				<error-handler >
+					<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="d322e407-9c20-41be-9fad-5987b3e1de58" >
+						<logger level="INFO" doc:name="Logger" doc:id="c6a26fa1-afbd-4694-bd49-bda39044f218" message='#["for each continues"]'/>
+					</on-error-continue>
+				</error-handler>
+			</try>
+			<logger level="INFO" doc:name="Logger" doc:id="804c58b8-6ccc-4318-b7c7-c9a4669225d1" />
+		</foreach>
+	</flow>
+	<flow name="foreachFlow1" doc:id="3f13b93d-69cf-40aa-b4e9-fbcbe9f27bdd" >
+		<http:listener doc:name="Listener" doc:id="93afc068-9f04-4d36-ad91-19803925020f" config-ref="HTTP_Listener_config" path="/foreach1"/>
+		<set-payload value='#[[1,2,"a",4,5]]' doc:name='[1,2,"a",4,5]' doc:id="58f89881-06a4-43c0-9bfa-f526e25320e6" />
+		<set-variable value="#[[]]" doc:name="mycollection" doc:id="04702568-b98f-465d-b479-cf2a071a7686" variableName="mycollection"/>
+		<foreach doc:name="For Each" doc:id="027b440e-0bf4-497e-86d0-490b69489c34" collection="#[vars.mycollection ++ payload]">
+			<try doc:name="Try" doc:id="41a41fb2-aa45-41d5-bd47-ed4dc4133fa1" >
+				<set-payload value="#[payload * 10]" doc:name="Set Payload" doc:id="ee89fce6-e8bd-49b2-acfb-081c8bed80ff" />
+				<set-variable value="#[vars.mycollection]" doc:name="mypayload" doc:id="300aa595-f99b-428e-a8f9-2fb1a875788b" variableName="mypayload" />
+				<logger level="INFO" doc:name="Logger" doc:id="850f1127-097b-43e5-8801-e9b89b30367f" message="#[payload]" />
+				<error-handler >
+					<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="5ba02106-e27e-42c0-8b48-a922b9a037ff" >
+						<logger level="INFO" doc:name="Logger" doc:id="79bd3d88-c36d-49f4-88de-001cdc8b6353" message="#[payload]"/>
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="cdde8aca-b1dc-428a-beba-4b24963504fc" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"varsvalue": vars.mypayload,
+"payloadvalue": payload
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="foreachFlow2" doc:id="e6e5a971-ad85-48a5-9efe-285168bdc841" >
+		<http:listener doc:name="Listener" doc:id="8c836342-984f-4b87-b796-f94dfb47d454" config-ref="HTTP_Listener_config" path="/foreach2"/>
+		<set-payload value='#[[1,2,3,"a",5,"b"]]' doc:name='[1,2,3,"a",5,"b"]' doc:id="bd02f5b5-c47b-4649-9473-71d2147f421a" />
+		<set-variable value="#[[]]" doc:name="mysuccesrecords" doc:id="1b1a70f6-d248-4102-8094-9108ea9b3bb3" variableName="mysuccesrecords"/>
+		<set-variable value="#[[]]" doc:name="myfailedrecords" doc:id="d19d08be-4f8e-40c3-ae7e-d62b95fbfba1" variableName="myfailedrecords"/>
+		<foreach doc:name="For Each" doc:id="f87ed5ac-fe8e-4047-b6d9-c9da4d7db311">
+			<try doc:name="Try" doc:id="4b03fb42-e800-4d5b-9497-f0cc8d5a2ac3" >
+				<set-payload value="#[payload *10]" doc:name="Set Payload" doc:id="e0f9c652-1c5b-4a14-ba6a-a684f329af8e" />
+				<set-variable value="#[output application/json --- vars.mysuccesrecords + payload]" doc:name="mysuccesrecords" doc:id="5eff8d95-6e9a-4cac-bfd8-ae8004a2efaa" variableName="mysuccesrecords" />
+				<error-handler >
+					<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="68a5925f-3d4e-4ca6-b1b1-4de652cf5f37" >
+						<set-payload value="#[payload]" doc:name="Set Payload" doc:id="2f72b6bd-404b-4627-aea3-8cf20b8f3f2c" />
+						<set-variable value="#[output application/json --- vars.myfailedrecords + payload]" doc:name="myfailedrecords" doc:id="adfe8cf1-1511-4ded-8006-b9c9d373ea7c" variableName="myfailedrecords" />
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="f1db3a04-798f-4684-974f-087a2f3d89c9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"actualvalue": payload,
+	"succesrecords": vars.mysuccesrecords,
+	"failedrecords": vars.myfailedrecords
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
